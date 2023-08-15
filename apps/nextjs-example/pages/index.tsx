@@ -1,23 +1,14 @@
 import { AptosClient, BCS, TxnBuilderTypes, Types } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { WalletConnector } from "@aptos-labs/wallet-adapter-mui-design";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { useAutoConnect } from "../components/AutoConnectProvider";
 import { useAlert } from "../components/AlertProvider";
+import { useEffect } from "react";
 
 const WalletButtons = dynamic(() => import("../components/WalletButtons"), {
   suspense: false,
   ssr: false,
 });
-
-const WalletSelectorAntDesign = dynamic(
-  () => import("../components/WalletSelectorAntDesign"),
-  {
-    suspense: false,
-    ssr: false,
-  }
-);
 
 export const DEVNET_NODE_URL = "https://fullnode.devnet.aptoslabs.com/v1";
 
@@ -26,28 +17,26 @@ const aptosClient = new AptosClient(DEVNET_NODE_URL, {
 });
 
 export default function App() {
-  const {
-    connected,
-    disconnect,
-    account,
-    network,
-    wallet,
-    signAndSubmitTransaction,
-    signAndSubmitBCSTransaction,
-    signTransaction,
-    signMessage,
-    signMessageAndVerify,
-  } = useWallet();
+  const { connected, disconnect, account, network, signAndSubmitTransaction } =
+    useWallet();
 
-  const { autoConnect, setAutoConnect } = useAutoConnect();
-  const { setSuccessAlertMessage, setSuccessAlertHash } = useAlert();
+  const { setAutoConnect } = useAutoConnect();
+  const { setSuccessAlertHash } = useAlert();
 
-  const onSignAndSubmitTransaction = async () => {
+  const onClickMintButton = async () => {
     const payload: Types.TransactionPayload = {
       type: "entry_function_payload",
-      function: "0x1::coin::transfer",
-      type_arguments: ["0x1::aptos_coin::AptosCoin"],
-      arguments: [account?.address, 1], // 1 is in Octas
+      function: "0x4::aptos_token::mint",
+      type_arguments: [],
+      arguments: [
+        "Test Collection 1",
+        "Test Collection hehe",
+        "Test Collection 1 V2 #100",
+        "https://www.sotatek.com/wp-content/uploads/2021/05/logo-Sotatek-2021day-du.png",
+        [],
+        [],
+        [],
+      ],
     };
     const response = await signAndSubmitTransaction(payload);
     try {
@@ -58,105 +47,88 @@ export default function App() {
     }
   };
 
-  const onSignAndSubmitBCSTransaction = async () => {
-    const token = new TxnBuilderTypes.TypeTagStruct(
-      TxnBuilderTypes.StructTag.fromString("0x1::aptos_coin::AptosCoin")
-    );
-    const entryFunctionBCSPayload =
-      new TxnBuilderTypes.TransactionPayloadEntryFunction(
-        TxnBuilderTypes.EntryFunction.natural(
-          "0x1::coin",
-          "transfer",
-          [token],
-          [
-            BCS.bcsToBytes(
-              TxnBuilderTypes.AccountAddress.fromHex(account!.address)
-            ),
-            BCS.bcsSerializeUint64(2),
-          ]
-        )
-      );
-
-    const response = await signAndSubmitBCSTransaction(entryFunctionBCSPayload);
-    try {
-      await aptosClient.waitForTransaction(response.hash);
-      setSuccessAlertHash(response.hash, network?.name);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const onSignTransaction = async () => {
-    const payload: Types.TransactionPayload = {
-      type: "entry_function_payload",
-      function: "0x1::coin::transfer",
-      type_arguments: ["0x1::aptos_coin::AptosCoin"],
-      arguments: [account?.address, 1], // 1 is in Octas
-    };
-    const response = await signTransaction(payload);
-    setSuccessAlertMessage(JSON.stringify(response));
-  };
-
-  const onSignMessage = async () => {
-    const payload = {
-      message: "Hello from Aptos Wallet Adapter",
-      nonce: "random_string",
-    };
-    const response = await signMessage(payload);
-    setSuccessAlertMessage(JSON.stringify(response));
-  };
-
-  const onSignMessageAndVerify = async () => {
-    const payload = {
-      message: "Hello from Aptos Wallet Adapter",
-      nonce: "random_string",
-    };
-    const response = await signMessageAndVerify(payload);
-    setSuccessAlertMessage(
-      JSON.stringify({ onSignMessageAndVerify: response })
-    );
-  };
+  useEffect(() => {
+    setAutoConnect(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div>
       <h1 className="flex justify-center mt-2 mb-4 text-4xl font-extrabold tracking-tight leading-none text-black">
-        Aptos Wallet Adapter Demo (Devnet)
+        Aptos Mint NFT Demo (Devnet)
       </h1>
-      <table className="table-auto w-full border-separate border-spacing-y-8 shadow-lg bg-white border-separate">
+      <table className="table-auto w-full border-separate border-spacing-y-8 shadow-lg bg-white">
+        {account ? (
+          <tbody>
+            <tr>
+              <td className="px-8 py-4 border-t">
+                <h3>Account</h3>
+              </td>
+              <td className="px-8 py-4 border-t break-all">
+                <div>{account ? account.address : ""}</div>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-8 py-4 border-t">
+                <h3>Public key</h3>
+              </td>
+              <td className="px-8 py-4 border-t break-all">
+                <div>{account ? account.publicKey : ""}</div>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-8 py-4 border-t">
+                <h3>Network</h3>
+              </td>
+              <td className="px-8 py-4 border-t">
+                <div>{network ? network.name : ""}</div>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-8 py-4 border-t">
+                <h3>Chain ID</h3>
+              </td>
+              <td className="px-8 py-4 border-t">
+                <div>{network ? network.chainId : ""}</div>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-8 py-4 border-t w-1/4">
+                <h3>Disconnect wallet</h3>
+              </td>
+              <td className="px-8 py-4 border-t break-all w-3/4">
+                <div>
+                  <button
+                    className={`bg-blue-500  text-white font-bold py-2 px-4 rounded mr-4 ${
+                      !connected
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-blue-700"
+                    }`}
+                    onClick={disconnect}
+                    disabled={!connected}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        ) : (
+          <tbody>
+            <tr>
+              <td className="px-8 py-4 w-1/4">
+                <h3>Connect a Wallet</h3>
+              </td>
+              <td className="px-8 py-4 w-3/4">
+                <WalletButtons />
+              </td>
+            </tr>
+          </tbody>
+        )}
         <tbody>
           <tr>
-            <td className="px-8 py-4 w-1/4">
-              <h3>Connect a Wallet</h3>
-            </td>
-            <td className="px-8 py-4 w-3/4">
-              <WalletButtons />
-            </td>
-          </tr>
-          <tr>
             <td className="px-8 py-4 border-t w-1/4">
-              <h3>Wallet Select</h3>
-            </td>
-            <td className="px-8 py-4 border-t w-3/4"></td>
-          </tr>
-          <tr>
-            <td className="px-8 py-4 w-1/4">
-              <h3>Ant Design</h3>
-            </td>
-            <td className="px-8 py-4 w-3/4">
-              <WalletSelectorAntDesign />
-            </td>
-          </tr>
-          <tr>
-            <td className="px-8 py-4 w-1/4">
-              <h3>MUI Design</h3>
-            </td>
-            <td className="px-8 py-4 w-3/4">
-              <WalletConnector />
-            </td>
-          </tr>
-          <tr>
-            <td className="px-8 py-4 border-t w-1/4">
-              <h3>Standard functions</h3>
+              <h3>Mint NFT V2</h3>
             </td>
             <td className="px-8 py-4 border-t break-all w-3/4">
               <div>
@@ -166,142 +138,11 @@ export default function App() {
                       ? "opacity-50 cursor-not-allowed"
                       : "hover:bg-blue-700"
                   }`}
-                  onClick={disconnect}
+                  onClick={onClickMintButton}
                   disabled={!connected}
                 >
-                  Disconnect
+                  Mint
                 </button>
-                <button
-                  className={`bg-blue-500  text-white font-bold py-2 px-4 rounded mr-4 ${
-                    !connected
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:bg-blue-700"
-                  }`}
-                  onClick={onSignAndSubmitTransaction}
-                  disabled={!connected}
-                >
-                  Sign and submit transaction
-                </button>
-
-                <button
-                  className={`bg-blue-500 text-white font-bold py-2 px-4 rounded mr-4 ${
-                    !connected
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:bg-blue-700"
-                  }`}
-                  onClick={onSignMessage}
-                  disabled={!connected}
-                >
-                  Sign Message
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td className="px-8 py-4 border-t w-1/4">Feature functions</td>
-            <td className="px-8 py-4 border-t w-3/4">
-              <button
-                className={`bg-orange-500 text-white font-bold py-2 px-4 rounded mr-4 ${
-                  !connected
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-orange-700"
-                }`}
-                onClick={onSignMessageAndVerify}
-                disabled={!connected}
-              >
-                Sign Message and Verify
-              </button>
-              <button
-                className={`bg-orange-500 text-white font-bold py-2 px-4 rounded mr-4 ${
-                  !connected
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-orange-700"
-                }`}
-                onClick={onSignTransaction}
-                disabled={!connected}
-              >
-                Sign transaction
-              </button>
-              <button
-                className={`bg-orange-500 text-white font-bold py-2 px-4 rounded mr-4 ${
-                  !connected
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-orange-700"
-                }`}
-                onClick={onSignAndSubmitBCSTransaction}
-                disabled={!connected}
-              >
-                Sign and submit BCS transaction
-              </button>
-            </td>
-          </tr>
-          <tr>
-            <td className="px-8 py-4 border-t w-1/4">
-              <h3>Wallet Name</h3>
-            </td>
-            <td className="px-8 py-4 border-t w-3/4">
-              <div style={{ display: "flex" }}>
-                {wallet && (
-                  <Image
-                    src={wallet.icon}
-                    alt={wallet.name}
-                    width={25}
-                    height={25}
-                  />
-                )}
-                {wallet?.name}
-              </div>
-              <div>
-                <a
-                  target="_blank"
-                  className="text-sky-600"
-                  rel="noreferrer"
-                  href={wallet?.url}
-                >
-                  {wallet?.url}
-                </a>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td className="px-8 py-4 border-t">
-              <h3>Account</h3>
-            </td>
-            <td className="px-8 py-4 border-t break-all">
-              <div>{account ? JSON.stringify(account) : ""}</div>
-            </td>
-          </tr>
-          <tr>
-            <td className="px-8 py-4 border-t">
-              <h3>Network</h3>
-            </td>
-            <td className="px-8 py-4 border-t">
-              <div>{network ? JSON.stringify(network) : ""}</div>
-            </td>
-          </tr>
-
-          <tr>
-            <td className="px-8 py-4 border-t">
-              <h3>auto connect</h3>
-            </td>
-            <td className="px-8 py-4 border-t">
-              <div className="relative flex flex-col overflow-hidden">
-                <div className="flex">
-                  <label className="inline-flex relative items-center mr-5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={autoConnect}
-                      readOnly
-                    />
-                    <div
-                      onClick={() => {
-                        setAutoConnect(!autoConnect);
-                      }}
-                      className="w-11 h-6 bg-gray-200 rounded-full peer  peer-focus:ring-green-300  peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"
-                    ></div>
-                  </label>
-                </div>
               </div>
             </td>
           </tr>
