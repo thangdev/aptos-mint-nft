@@ -1,61 +1,141 @@
-import { AptosClient, BCS, TxnBuilderTypes, Types } from "aptos";
+import { AptosClient, Types } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import dynamic from "next/dynamic";
-import { useAutoConnect } from "../components/AutoConnectProvider";
 import { useAlert } from "../components/AlertProvider";
-import { useEffect } from "react";
+import { Provider, Network } from "aptos";
+import { useEffect, useState } from "react";
 
 const WalletButtons = dynamic(() => import("../components/WalletButtons"), {
   suspense: false,
   ssr: false,
 });
 
-export const DEVNET_NODE_URL = "https://fullnode.devnet.aptoslabs.com/v1";
+export const TESTNET_NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1";
 
-const aptosClient = new AptosClient(DEVNET_NODE_URL, {
+const aptosClient = new AptosClient(TESTNET_NODE_URL, {
   WITH_CREDENTIALS: false,
 });
+
+const provider = new Provider(Network.TESTNET);
 
 export default function App() {
   const { connected, disconnect, account, network, signAndSubmitTransaction } =
     useWallet();
 
-  const { setAutoConnect } = useAutoConnect();
   const { setSuccessAlertHash } = useAlert();
 
+  const [accountCollections, setAccountCollections] = useState<any>();
+
   const onClickMintButton = async () => {
-    const payload: Types.TransactionPayload = {
-      type: "entry_function_payload",
-      function: "0x4::aptos_token::mint",
-      type_arguments: [],
-      arguments: [
-        "Test Collection 1",
-        "Test Collection hehe",
-        "Test Collection 1 V2 #100",
-        "https://www.sotatek.com/wp-content/uploads/2021/05/logo-Sotatek-2021day-du.png",
-        [],
-        [],
-        [],
-      ],
-    };
-    const response = await signAndSubmitTransaction(payload);
+    // Random number from 1 - 999999
+    const randomNumber = Math.floor(Math.random() * 999999) + 1;
+
+    if (accountCollections === "") {
+      const createCollectionPayload: Types.TransactionPayload = {
+        type: "entry_function_payload",
+        function: "0x4::aptos_token::create_collection",
+        type_arguments: [],
+        arguments: [
+          "This is Sotatek test collection",
+          "1000000000",
+          "Sota Test Collection #1",
+          "https://www.sotatek.com/wp-content/uploads/2021/05/logo-Sotatek-2021day-du.png",
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          "100",
+          "10000",
+        ],
+      };
+      const createCollectionResponse = await signAndSubmitTransaction(
+        createCollectionPayload
+      );
+      try {
+        const createCollectionReceipt =
+          await aptosClient.waitForTransactionWithResult(
+            createCollectionResponse.hash,
+            { checkSuccess: true }
+          );
+        if (createCollectionReceipt.hash) {
+          const payload: Types.TransactionPayload = {
+            type: "entry_function_payload",
+            function: "0x4::aptos_token::mint",
+            type_arguments: [],
+            arguments: [
+              "Sota Test Collection #1",
+              "Sota Testnet NFT",
+              `Test Sota NFT V2 #${randomNumber}`,
+              "https://www.sotatek.com/wp-content/uploads/2021/05/logo-Sotatek-2021day-du.png",
+              [],
+              [],
+              [],
+            ],
+          };
+          const response = await signAndSubmitTransaction(payload);
+          try {
+            await aptosClient.waitForTransaction(response.hash);
+            setSuccessAlertHash(response.hash, network?.name);
+            fetchList();
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    } else {
+      const payload: Types.TransactionPayload = {
+        type: "entry_function_payload",
+        function: "0x4::aptos_token::mint",
+        type_arguments: [],
+        arguments: [
+          "Sota Test Collection #1",
+          "Sota Testnet NFT",
+          `Test Sota NFT V2 #${randomNumber}`,
+          "https://www.sotatek.com/wp-content/uploads/2021/05/logo-Sotatek-2021day-du.png",
+          [],
+          [],
+          [],
+        ],
+      };
+      const response = await signAndSubmitTransaction(payload);
+      try {
+        await aptosClient.waitForTransaction(response.hash);
+        setSuccessAlertHash(response.hash, network?.name);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  };
+
+  const fetchList = async () => {
+    if (!account) return [];
     try {
-      await aptosClient.waitForTransaction(response.hash);
-      setSuccessAlertHash(response.hash, network?.name);
-    } catch (error) {
-      console.error(error);
+      const CollectionResource = await provider.getCollectionAddress(
+        account.address,
+        "Sota Test Collection #1"
+      );
+      setAccountCollections(CollectionResource);
+    } catch (e: any) {
+      setAccountCollections("");
     }
   };
 
   useEffect(() => {
-    setAutoConnect(true);
+    fetchList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [account?.address]);
 
   return (
     <div>
       <h1 className="flex justify-center mt-2 mb-4 text-4xl font-extrabold tracking-tight leading-none text-black">
-        Aptos Mint NFT Demo (Devnet)
+        Aptos Mint NFT Demo (Testnet only)
       </h1>
       <table className="table-auto w-full border-separate border-spacing-y-8 shadow-lg bg-white">
         {account ? (
